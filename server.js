@@ -1,4 +1,6 @@
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
@@ -6,6 +8,11 @@ const User = require('./models/User');
 const Ride = require('./models/Ride');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: "*" }
+});
+
 app.use(express.json());
 app.use(cors());
 
@@ -15,9 +22,33 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('MongoDB-ga muvaffaqiyatli ulanindi'))
   .catch((err) => console.error('Baza ulanishida xatolik:', err));
 
-// Bosh sahifa
+// --- WebSocket (Real-vaqt rejimida muloqot) ---
+io.on('connection', (socket) => {
+  console.log('Yangi foydalanuvchi ulandi:', socket.id);
+
+  // Haydovchi o'z geolokatsiyasini yuborganda
+  socket.on('updateLocation', async (data) => {
+    const { driverId, latitude, longitude } = data;
+    
+    // Haydovchining koordinatasini yangilash
+    await User.findByIdAndUpdate(driverId, {
+      location: { type: 'Point', coordinates: [longitude, latitude] },
+      isOnline: true
+    });
+
+    // Atrofdagilarga haydovchining yangi o'rnini uzatish
+    io.emit('driverMoved', { driverId, latitude, longitude });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Foydalanuvchi uzildi:', socket.id);
+  });
+});
+
+// --- REST API Yo'nalishlari ---
+
 app.get('/', (req, res) => {
-  res.send('Taksi ilovasi backend API ishlamoqda!');
+  res.send('Taksi ilovasi WebSocket Serveri ishlamoqda!');
 });
 
 // 1. Foydalanuvchi/Haydovchini ro'yxatdan o'tkazish
@@ -31,7 +62,7 @@ app.post('/api/users/register', async (req, res) => {
   }
 });
 
-// 2. Taksi buyurtma qilish (Yo'lovchi)
+// 2. Taksi buyurtma qilish (Yo'lovchi) va Real-vaqtda haydovchilarga bildirishnoma yuborish
 app.post('/api/rides/request', async (req, res) => {
   try {
     const { passengerId, pickupLocation, destination, price } = req.body;
@@ -42,23 +73,17 @@ app.post('/api/rides/request', async (req, res) => {
       price
     });
     await ride.save();
+
+    // Barcha onlayn haydovchilarga yangi buyurtma kelganini e'lon qilish
+    io.emit('newRideAvailable', ride);
+
     res.status(201).json({ success: true, message: 'Buyurtma yaratildi', ride });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }
 });
 
-// 3. Aktiv buyurtmalarni ko'rish (Haydovchi)
-app.get('/api/rides/available', async (req, res) => {
-  try {
-    const rides = await Ride.find({ status: 'created' }).populate('passenger', 'name phone');
-    res.json({ success: true, data: rides });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// 4. Buyurtmani qabul qilish (Haydovchi)
+// 3. Buyurtmani qabul qilish (Haydovchi)
 app.post('/api/rides/accept', async (req, res) => {
   try {
     const { rideId, driverId } = req.body;
@@ -67,6 +92,10 @@ app.post('/api/rides/accept', async (req, res) => {
       { driver: driverId, status: 'accepted' },
       { new: true }
     );
+
+    // Yo'lovchiga buyurtmasi qabul qilinganligini xabar qilish
+    io.emit('rideAccepted', ride);
+
     res.json({ success: true, message: 'Buyurtma qabul qilindi', ride });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
@@ -74,6 +103,6 @@ app.post('/api/rides/accept', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server ${PORT}-portda ishlamoqda...`);
 });
