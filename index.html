@@ -1,56 +1,102 @@
 <!DOCTYPE html>
 <html lang="uz">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Taksi Ilovasi - Demo</title>
-  <style>
-    * { box-sizing: border-box; font-family: sans-serif; margin: 0; padding: 0; }
-    body { padding: 20px; background-color: #f4f5f7; }
-    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
-    h2 { margin-bottom: 15px; color: #333; text-align: center; }
-    input, button, select { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
-    button { background-color: #f7c600; font-weight: bold; border: none; cursor: pointer; color: #000; }
-    button:hover { background-color: #e0b300; }
-    .status { margin-top: 15px; padding: 10px; background: #eef2ff; border-radius: 6px; font-size: 14px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Haydovchi Paneli</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 400px; margin: auto; text-align: center; }
+        button { padding: 12px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; width: 100%; font-weight: bold; }
+        .btn-off { background-color: #dc3545; color: white; }
+        .btn-accept { background-color: #28a745; color: white; margin-top: 10px; }
+        #order-box { display: none; background: #e9ecef; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: left; }
+    </style>
 </head>
 <body>
 
-  <div class="card">
-    <h2>🚕 Taksi Chaqirish</h2>
-    
-    <label>Rolingizni tanlang:</label>
-    <select id="role">
-      <option value="passenger">Yo'lovchi</option>
-      <option value="driver">Haydovchi</option>
-    </select>
+    <div class="card">
+        <h2>🚖 Haydovchi Paneli</h2>
+        <p id="status-text">Holat: Oflayn</p>
+        
+        <button id="toggle-btn" class="btn-off" onclick="toggleOffline()">Ishni yakunlash (Oflayn)</button>
 
-    <input type="text" id="pickup" placeholder="Qayerdan? (masalan, Yunusobod)">
-    <input type="text" id="destination" placeholder="Qayerga? (masalan, Chorsu)">
-    <input type="number" id="price" placeholder="Taklif narxingiz (so'm)">
+        <!-- Kelgan buyurtma ko'rinadigan blok -->
+        <div id="order-box">
+            <h3 style="margin-top:0; color: #28a745;">🔔 Yangi Buyurtma!</h3>
+            <p id="order-info">Mijoz joylashuvi qabul qilinmoqda...</p>
+            <button class="btn-accept" onclick="acceptOrder()">Buyurtmani qabul qilish</button>
+        </div>
 
-    <button onclick="sendRequest()">Buyurtma berish</button>
-
-    <div class="status" id="status">
-      Status: Xush kelibsiz! Buyurtma berish uchun ma'lumotlarni kiriting.
+        <div style="margin-top: 15px; background: #eee; padding: 10px; border-radius: 5px; text-align: left; font-size: 12px;">
+            <strong>Loglar:</strong>
+            <div id="logs">Serverga ulanmoqda...</div>
+        </div>
     </div>
-  </div>
 
-  <script>
-    function sendRequest() {
-      const pickup = document.getElementById('pickup').value;
-      const destination = document.getElementById('destination').value;
-      const price = document.getElementById('price').value;
-      const statusDiv = document.getElementById('status');
+    <script>
+        const socket = io();
+        const driverId = "driver_1";
+        let watchId = null;
+        let isOnline = true;
 
-      if(!pickup || !destination || !price) {
-        alert("Iltimos, barcha maydonlarni to'ldiring!");
-        return;
-      }
+        socket.on('connect', () => {
+            document.getElementById('logs').innerText = 'Serverga ulandik!';
+            startGPS();
+        });
 
-      statusDiv.innerHTML = `⏳ <b>Buyurtma yuborilmoqda...</b><br>Yo'nalish: ${pickup} ➔ ${destination}<br>Narx: ${price} so'm`;
-    }
-  </script>
+        // GPS orqali joylashuvni yuborib turish
+        function startGPS() {
+            if (navigator.geolocation) {
+                watchId = navigator.geolocation.watchPosition((position) => {
+                    const { latitude, longitude } = position.coords;
+                    document.getElementById('logs').innerText = `GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+                    
+                    if (isOnline) {
+                        socket.emit('updateLocation', {
+                            driverId: driverId,
+                            latitude: latitude,
+                            longitude: longitude
+                        });
+                    }
+                }, (err) => {
+                    document.getElementById('logs').innerText = 'GPS xatosi: ' + err.message;
+                }, { enableHighAccuracy: true });
+            }
+        }
+
+        // Mijozdan yangi buyurtma kelganda ishlaydi
+        socket.on('order_received', (order) => {
+            if (!isOnline) return;
+
+            document.getElementById('order-box').style.display = 'block';
+            document.getElementById('order-info').innerHTML = `
+                <b>A nuqta:</b> ${order.pickup.lat.toFixed(4)}, ${order.pickup.lng.toFixed(4)}<br>
+                <b>B nuqta:</b> ${order.destination.lat.toFixed(4)}, ${order.destination.lng.toFixed(4)}
+            `;
+        });
+
+        function acceptOrder() {
+            alert("Buyurtma qabul qilindi! Mijoz tomon yo'lga chiqing.");
+            document.getElementById('order-box').style.display = 'none';
+        }
+
+        function toggleOffline() {
+            isOnline = !isOnline;
+            const btn = document.getElementById('toggle-btn');
+            const status = document.getElementById('status-text');
+
+            if (isOnline) {
+                btn.innerText = "Ishni yakunlash (Oflayn)";
+                btn.className = "btn-off";
+                status.innerText = "Holat: Onlayn (GPS uzatilmoqda)";
+            } else {
+                btn.innerText = "Ishga chiqish (Onlayn)";
+                btn.style.backgroundColor = "#007bff";
+                status.innerText = "Holat: Oflayn";
+            }
+        }
+    </script>
 </body>
 </html>
