@@ -10,7 +10,7 @@
     <style>
         body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
         #map { height: 100vh; width: 100vw; }
-        .info-box {
+        #info-box {
             position: absolute;
             top: 10px;
             left: 50%;
@@ -19,27 +19,66 @@
             background: white;
             padding: 10px 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
             font-weight: bold;
+        }
+        #order-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            width: 85%;
+            max-width: 380px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <div class="info-box" id="status">Taksi qidirilmoqda...</div>
+
+    <div id="info-box"><span id="status">Taksi qidirilmoqda...</span></div>
     <div id="map"></div>
+
+    <!-- Buyurtma paneli -->
+    <div id="order-panel">
+        <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #333;">Taksi buyurtma qilish</h3>
+        <p id="destination-text" style="font-size: 13px; color: #666; margin-bottom: 12px;">
+            📍 B nuqtani belgilash uchun xaritaga bosing
+        </p>
+        <button id="order-btn" disabled style="width: 100%; padding: 12px; background: #ccc; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer;">
+            Buyurtma berish
+        </button>
+    </div>
 
     <script>
         const socket = io();
-        let map = L.map('map').setView([41.311081, 69.240562], 13);
+        let map = L.map('map').setView([42.4775, 59.5737], 13);
         let driverMarker = null;
+        let destinationMarker = null;
+        let destinationCoords = null;
+        let userLocation = { lat: 42.4775, lng: 59.5737 }; // Boshlang'ich koordinata
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap'
         }).addTo(map);
 
+        // GPS orqali mijozning joylashuvini olish
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition((position) => {
+                userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+            });
+        }
+
         socket.on('connect', () => {
-            document.getElementById('status').innerText = "Serverga ulandik. Haydovchi kutilmoqda...";
+            document.getElementById('status').innerText = 'Serverga ulandik! Haydovchi kutilmoqda...';
         });
 
         socket.on('driverLocationUpdated', (data) => {
@@ -50,10 +89,54 @@
                 driverMarker.setLatLng([latitude, longitude]);
             } else {
                 driverMarker = L.marker([latitude, longitude]).addTo(map)
-                    .bindPopup("🚖 Sizning taksingiz").openPopup();
+                    .bindPopup('🚖 Sizning taksingiz').openPopup();
+            }
+        });
+
+        // 1. Xaritaga bosganda B nuqtani tanlash
+        map.on('click', function(e) {
+            const { lat, lng } = e.latlng;
+            destinationCoords = { lat, lng };
+
+            if (destinationMarker) {
+                map.removeLayer(destinationMarker);
             }
 
-            map.setView([latitude, longitude], 15);
+            destinationMarker = L.marker([lat, lng], {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41]
+                })
+            }).addTo(map).bindPopup("B nuqta (Manzil)").openPopup();
+
+            const orderBtn = document.getElementById('order-btn');
+            const destText = document.getElementById('destination-text');
+            
+            orderBtn.disabled = false;
+            orderBtn.style.background = '#28a745';
+            destText.innerText = "Manzil belgilandi! Buyurtma berishingiz mumkin.";
+        });
+
+        // 2. Buyurtma tugmasi bosilganda
+        document.getElementById('order-btn').addEventListener('click', function() {
+            if (!destinationCoords) {
+                alert("Iltimos, avval xaritadan boradigan joyingizni bosing!");
+                return;
+            }
+
+            const orderData = {
+                pickup: userLocation,
+                destination: destinationCoords
+            };
+
+            socket.emit('new_order', orderData);
+
+            alert("Buyurtma yuborildi! Haydovchilar izlanmoqda...");
+            this.disabled = true;
+            this.style.background = '#ccc';
+            this.innerText = 'Kutilmoqda...';
         });
     </script>
 </body>
