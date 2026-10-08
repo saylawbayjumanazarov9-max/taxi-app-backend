@@ -4,8 +4,8 @@ const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
-const User = require('./models/User');
-const Ride = require('./models/Ride');
+const user = require('./models/User');
+const ride = require('./models/Ride');
 
 const app = express();
 const server = http.createServer(app);
