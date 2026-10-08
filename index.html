@@ -3,99 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Haydovchi Paneli</title>
+    <title>Taxi Tulpar - Haydovchi</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f9; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 400px; margin: auto; text-align: center; }
-        button { padding: 12px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; width: 100%; font-weight: bold; }
-        .btn-off { background-color: #dc3545; color: white; }
-        .btn-accept { background-color: #28a745; color: white; margin-top: 10px; }
-        #order-box { display: none; background: #e9ecef; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: left; }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #121214; color: #fff; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #1a1a1e; border-bottom: 1px solid #2c2c33; }
+        .profile-info { font-size: 14px; font-weight: bold; }
+        .balance-box { background: #222228; padding: 6px 12px; border-radius: 8px; color: #ffc107; font-weight: bold; font-size: 14px; }
+        .content { padding: 20px; text-align: center; }
+        .status-msg { color: #ff6b6b; font-size: 15px; margin-top: 20px; font-weight: bold; }
+        
+        .menu-list { margin-top: 20px; text-align: left; }
+        .menu-item { background: #1a1a1e; border: 1px solid #2c2c33; padding: 15px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: #fff; font-size: 15px; }
+        .menu-item span { color: #888; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: #1a1a1e; border: 1px solid #2c2c33; padding: 20px; border-radius: 16px; width: 80%; max-width: 320px; text-align: center; }
+        .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-btn { flex: 1; padding: 12px; border-radius: 10px; font-weight: bold; border: none; cursor: pointer; }
+        .btn-no { background: #2c2c33; color: #fff; }
+        .btn-yes { background: #ffc107; color: #000; }
+
+        .btn-line { position: fixed; bottom: 20px; left: 20px; right: 20px; padding: 16px; background: #2ecc71; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; text-align: center; }
+        .btn-offline { background: #e74c3c !important; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>🚖 Haydovchi Paneli</h2>
-        <p id="status-text">Holat: Oflayn</p>
-        
-        <button id="toggle-btn" class="btn-off" onclick="toggleOffline()">Ishni yakunlash (Oflayn)</button>
+    <div class="header">
+        <div class="profile-info">👤 Jumanazarov Saylawbay</div>
+        <div class="balance-box">185 000 so'm</div>
+    </div>
 
-        <!-- Kelgan buyurtma ko'rinadigan blok -->
-        <div id="order-box">
-            <h3 style="margin-top:0; color: #28a745;">🔔 Yangi Buyurtma!</h3>
-            <p id="order-info">Mijoz joylashuvi qabul qilinmoqda...</p>
-            <button class="btn-accept" onclick="acceptOrder()">Buyurtmani qabul qilish</button>
-        </div>
+    <div class="content">
+        <div id="status-text" class="status-msg">Сизнинг ҳолатингиз нофаол, буюртма ололмайсиз!</div>
 
-        <div style="margin-top: 15px; background: #eee; padding: 10px; border-radius: 5px; text-align: left; font-size: 12px;">
-            <strong>Loglar:</strong>
-            <div id="logs">Serverga ulanmoqda...</div>
+        <div class="menu-list">
+            <div class="menu-item" onclick="alert('Хабарлар бўлими')">🔔 Хабарлар <span>›</span></div>
+            <div class="menu-item" onclick="alert('Бажарилган буюртмалар ва тарих')">💰 Бажарилган буюртмалар <span>›</span></div>
+            <div class="menu-item" onclick="alert('Созламалар ва профилни таҳрирлаш')">⚙️ Созламалар <span>›</span></div>
+            <div class="menu-item" onclick="openModal()" style="color: #ff6b6b;">🚪 Иловадан чиқиш <span>›</span></div>
         </div>
     </div>
 
+    <div id="exitModal" class="modal-overlay">
+        <div class="modal-box">
+            <div style="font-size: 30px; margin-bottom: 10px;">⚠️</div>
+            <h3 style="margin: 0 0 10px 0; font-size: 16px;">Иловадан чиқиш</h3>
+            <p style="font-size: 13px; color: #aaa;">Иловадан чиқиш орқали сиз навбатдан ҳам чиқиб кетасиз!</p>
+            <div class="modal-btns">
+                <button class="modal-btn btn-no" onclick="closeModal()">ЙЎҚ</button>
+                <button class="modal-btn btn-yes" onclick="exitApp()">ҲА</button>
+            </div>
+        </div>
+    </div>
+
+    <button id="toggle-btn" class="btn-line" onclick="toggleLine()">ЛИНИЯГА</button>
+
     <script>
-        const socket = io();
-        const driverId = "driver_1";
-        let watchId = null;
-        let isOnline = true;
+        let isOnline = false;
 
-        socket.on('connect', () => {
-            document.getElementById('logs').innerText = 'Serverga ulandik!';
-            startGPS();
-        });
-
-        // GPS orqali joylashuvni yuborib turish
-        function startGPS() {
-            if (navigator.geolocation) {
-                watchId = navigator.geolocation.watchPosition((position) => {
-                    const { latitude, longitude } = position.coords;
-                    document.getElementById('logs').innerText = `GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-                    
-                    if (isOnline) {
-                        socket.emit('updateLocation', {
-                            driverId: driverId,
-                            latitude: latitude,
-                            longitude: longitude
-                        });
-                    }
-                }, (err) => {
-                    document.getElementById('logs').innerText = 'GPS xatosi: ' + err.message;
-                }, { enableHighAccuracy: true });
-            }
-        }
-
-        // Mijozdan yangi buyurtma kelganda ishlaydi
-        socket.on('order_received', (order) => {
-            if (!isOnline) return;
-
-            document.getElementById('order-box').style.display = 'block';
-            document.getElementById('order-info').innerHTML = `
-                <b>A nuqta:</b> ${order.pickup.lat.toFixed(4)}, ${order.pickup.lng.toFixed(4)}<br>
-                <b>B nuqta:</b> ${order.destination.lat.toFixed(4)}, ${order.destination.lng.toFixed(4)}
-            `;
-        });
-
-        function acceptOrder() {
-            alert("Buyurtma qabul qilindi! Mijoz tomon yo'lga chiqing.");
-            document.getElementById('order-box').style.display = 'none';
-        }
-
-        function toggleOffline() {
+        function toggleLine() {
             isOnline = !isOnline;
             const btn = document.getElementById('toggle-btn');
             const status = document.getElementById('status-text');
 
             if (isOnline) {
-                btn.innerText = "Ishni yakunlash (Oflayn)";
-                btn.className = "btn-off";
-                status.innerText = "Holat: Onlayn (GPS uzatilmoqda)";
+                btn.innerText = "ЛИНИЯДАН ЧИҚИШ";
+                btn.className = "btn-line btn-offline";
+                status.style.color = "#2ecc71";
+                status.innerText = "Ҳозирда ҳеч қандай буюртмалар мавжуд эмас";
             } else {
-                btn.innerText = "Ishga chiqish (Onlayn)";
-                btn.style.backgroundColor = "#007bff";
-                status.innerText = "Holat: Oflayn";
+                btn.innerText = "ЛИНИЯГА";
+                btn.className = "btn-line";
+                status.style.color = "#ff6b6b";
+                status.innerText = "Сизнинг ҳолатингиз нофаол, буюртма ололмайсиз!";
             }
+        }
+
+        function openModal() {
+            document.getElementById('exitModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('exitModal').style.display = 'none';
+        }
+
+        function exitApp() {
+            alert("Иловадан чиқдингиз ва навбатдан узилдингиз.");
+            closeModal();
         }
     </script>
 </body>
