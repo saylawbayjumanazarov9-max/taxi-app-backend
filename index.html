@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taksi Ilovasi - Demo</title>
+  <style>
+    * { box-sizing: border-box; font-family: sans-serif; margin: 0; padding: 0; }
+    body { padding: 20px; background-color: #f4f5f7; }
+    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+    h2 { margin-bottom: 15px; color: #333; text-align: center; }
+    input, button, select { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
+    button { background-color: #f7c600; font-weight: bold; border: none; cursor: pointer; color: #000; }
+    button:hover { background-color: #e0b300; }
+    .status { margin-top: 15px; padding: 10px; background: #eef2ff; border-radius: 6px; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>🚕 Taksi Chaqirish</h2>
+    
+    <label>Rolingizni tanlang:</label>
+    <select id="role">
+      <option value="passenger">Yo'lovchi</option>
+      <option value="driver">Haydovchi</option>
+    </select>
+
+    <input type="text" id="pickup" placeholder="Qayerdan? (masalan, Yunusobod)">
+    <input type="text" id="destination" placeholder="Qayerga? (masalan, Chorsu)">
+    <input type="number" id="price" placeholder="Taklif narxingiz (so'm)">
+
+    <button onclick="sendRequest()">Buyurtma berish</button>
+
+    <div class="status" id="status">
+      Status: Xush kelibsiz! Buyurtma berish uchun ma'lumotlarni kiriting.
+    </div>
+  </div>
+
+  <script>
+    function sendRequest() {
+      const pickup = document.getElementById('pickup').value;
+      const destination = document.getElementById('destination').value;
+      const price = document.getElementById('price').value;
+      const statusDiv = document.getElementById('status');
+
+      if(!pickup || !destination || !price) {
+        alert("Iltimos, barcha maydonlarni to'ldiring!");
+        return;
+      }
+
+      statusDiv.innerHTML = `⏳ <b>Buyurtma yuborilmoqda...</b><br>Yo'nalish: ${pickup} ➔ ${destination}<br>Narx: ${price} so'm`;
+    }
+  </script>
+</body>
+</html>
