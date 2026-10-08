@@ -1,1 +1,82 @@
 
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Haydovchi Paneli</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f4f4f9; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+        button { padding: 12px 24px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; }
+        .btn-on { background: #28a745; color: white; }
+        .btn-off { background: #dc3545; color: white; }
+        #status { font-weight: bold; margin-top: 10px; }
+        #logs { margin-top: 20px; font-size: 14px; color: #555; text-align: left; background: #eee; padding: 10px; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🚖 Haydovchi Paneli</h2>
+        <p>Holat: <span id="status" style="color: red;">Oflayn</span></p>
+        <button id="toggleBtn" class="btn-on" onclick="toggleOnline()">Ishni boshlash (Onlayn)</button>
+        
+        <div id="logs">Loglar: <br></div>
+    </div>
+
+    <script>
+        const socket = io();
+        let isOnline = false;
+        let watchId = null;
+        const driverId = "driver_1";
+
+        function log(msg) {
+            document.getElementById('logs').innerHTML += msg + "<br>";
+        }
+
+        socket.on('connect', () => {
+            log("Serverga ulandik!");
+        });
+
+        function toggleOnline() {
+            isOnline = !isOnline;
+            const statusEl = document.getElementById('status');
+            const btn = document.getElementById('toggleBtn');
+
+            if (isOnline) {
+                statusEl.innerText = "Onlayn (GPS uzatilmoqda)";
+                statusEl.style.color = "green";
+                btn.innerText = "Ishni yakunlash (Oflayn)";
+                btn.className = "btn-off";
+
+                if (navigator.geolocation) {
+                    watchId = navigator.geolocation.watchPosition(
+                        (pos) => {
+                            const data = {
+                                driverId: driverId,
+                                latitude: pos.coords.latitude,
+                                longitude: pos.coords.longitude
+                            };
+                            socket.emit('updateLocation', data);
+                            log(`GPS: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+                        },
+                        (err) => log("GPS xatosi: " + err.message),
+                        { enableHighAccuracy: true }
+                    );
+                } else {
+                    alert("Brauzeringiz GPS-ni qo'llab-quvvatlamaydi!");
+                }
+            } else {
+                statusEl.innerText = "Oflayn";
+                statusEl.style.color = "red";
+                btn.innerText = "Ishni boshlash (Onlayn)";
+                btn.className = "btn-on";
+
+                if (watchId) navigator.geolocation.clearWatch(watchId);
+                log("GPS to'xtatildi.");
+            }
+        }
+    </script>
+</body>
+</html>
